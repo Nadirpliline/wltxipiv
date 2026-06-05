@@ -150,8 +150,9 @@ def build_plan(
                 preferred_chain=preferred,
                 auto_select_cheapest=policy.auto_select_cheapest_chain,
                 payee_address=address or "0x0000000000000000000000000000000000000000",
+                country=row["country"],
             )
-            route = "on-chain"
+            route = "on-chain" if chain != "stellar" else "stellar-anchor"
 
         status = "planned" if screen["cleared"] else "blocked_compliance"
         payment = Payment(
@@ -237,6 +238,15 @@ def propose_batch(db: Session, *, batch_id: int) -> dict:
                     amount=total,
                     index=batch.id,
                 )
+            elif adapter.name == "stellar":
+                proposal = adapter.build_transfer(
+                    account=wallet.address if wallet else "GPLACEHOLDERSTELLARACCOUNT000000000000000000000000",
+                    to=f"batch:{len(payments)}",
+                    asset=payments[0].asset,
+                    amount=total,
+                    sequence=batch.id,
+                    memo=f"payroll-batch-{batch.id}",
+                )
             else:
                 proposal = adapter.build_transfer(
                     chain=chain,
@@ -246,7 +256,7 @@ def propose_batch(db: Session, *, batch_id: int) -> dict:
                     amount=total,
                     nonce=batch.id,
                 )
-            safe_tx_hash = proposal["safe_tx_hash"]
+            safe_tx_hash = proposal.get("safe_tx_hash") or proposal.get("tx_hash", "")
 
         for p in payments:
             tx = Transaction(

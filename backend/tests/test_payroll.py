@@ -11,7 +11,7 @@ SAMPLE = pathlib.Path(__file__).resolve().parents[1] / "data" / "sample_payroll.
 
 def test_parse_sample_csv():
     rows = payroll_service.parse_csv(SAMPLE.read_text())
-    assert len(rows) == 12
+    assert len(rows) == 15
     assert all(r["amount_usd"] > 0 for r in rows)
     assert any(r["prefers_fiat"] for r in rows)
 
@@ -19,14 +19,15 @@ def test_parse_sample_csv():
 def test_full_payroll_flow_keeps_books_balanced(db, org):
     rows = payroll_service.parse_csv(SAMPLE.read_text())
     batch = payroll_service.build_plan(db, organization_id=org.id, name="June", rows=rows)
-    assert batch.payment_count == 12
+    assert batch.payment_count == 15
     assert batch.total_usd > 0
 
     proposal = payroll_service.propose_batch(db, batch_id=batch.id)
     assert proposal["proposals"]
-    # Multiple settlement chains should be used (base, solana, arbitrum, polygon, off-ramp).
+    # Multiple settlement chains should be used (base, solana, stellar, off-ramp, etc.).
     chains = {p["chain"] for p in proposal["proposals"]}
     assert len(chains) >= 3
+    assert "stellar" in chains
 
     result = payroll_service.execute_batch(db, batch_id=batch.id)
     assert result["executed_payments"] == batch.payment_count

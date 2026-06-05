@@ -13,6 +13,8 @@ from typing import Any, Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.soroban_policy import soroban_policy
+from app.adapters.stellar_anchor import stellar_anchor
 from app.adapters.swap import swap
 from app.adapters.yield_venues import yield_adapter
 from app.core.constants import TxStatus, TxType
@@ -270,6 +272,123 @@ def categorize_transactions(ctx: ToolContext, **_: Any) -> ToolResult:
     )
 
 
+def stellar_cross_border_quote(
+    ctx: ToolContext, *, amount_usd: float, country: str, asset: str = "USDC", **_: Any
+) -> ToolResult:
+    """Quote a Stellar anchor cross-border payment (EMEA/Africa corridors)."""
+    quote = stellar_anchor.quote(amount_usd=float(amount_usd), country=country, asset=asset)
+    comparison = stellar_anchor.compare_vs_traditional(
+        amount_usd=float(amount_usd), country=country
+    )
+    return ToolResult(
+        ok=True,
+        data={"quote": quote.data, "vs_traditional": comparison},
+        message=(
+            f"Stellar anchor: ${amount_usd:,.0f} to {country} via {quote.data['rail']} — "
+            f"fee ${quote.data['fee_usd']:.2f} ({quote.data['eta']}). "
+            f"Saves ${comparison['savings_usd']:.2f} vs traditional ({comparison['savings_pct']:.0f}% cheaper)."
+        ),
+    )
+
+
+def deploy_rwa(
+    ctx: ToolContext,
+    *,
+    amount_usd: float,
+    asset: str = "USDC",
+    venue: str = "stellar_tbill_us",
+    **_: Any,
+) -> ToolResult:
+    """Deploy treasury funds into tokenized RWA (T-bills, bonds) on Stellar."""
+    amount_usd = float(amount_usd)
+    policy_check = soroban_policy.check_yield_deployment(
+        amount_usd=amount_usd, venue=venue
+    )
+    chosen = next(
+        (v for v in yield_adapter.list_venues(asset) if v["venue"] == venue),
+        yield_adapter.best_stellar_venue(asset),
+    )
+    if not chosen:
+        return ToolResult(ok=False, data={}, message=f"No Stellar RWA venue for {asset}.")
+
+    pos = YieldPosition(
+        organization_id=ctx.organization_id,
+        venue=chosen["venue"],
+        chain="stellar",
+        asset=asset,
+        principal_usd=amount_usd,
+        apy=chosen["apy"],
+    )
+    ctx.db.add(pos)
+    ledger_service.post_entry(
+        ctx.db,
+        organization_id=ctx.organization_id,
+        lines=[("1300", amount_usd, 0.0), ("1000", 0.0, amount_usd)],
+        memo=f"Deploy ${amount_usd:,.0f} {asset} to {chosen['venue']} (RWA on Stellar)",
+        reference=f"rwa:{chosen['venue']}",
+    )
+    ctx.db.flush()
+    return ToolResult(
+        ok=True,
+        data={
+            "position_id": pos.id,
+            "venue": chosen["venue"],
+            "apy": chosen["apy"],
+            "chain": "stellar",
+            "policy_check": {
+                "allowed": policy_check.allowed,
+                "reason": policy_check.reason,
+                "additional_signers": policy_check.requires_additional_signers,
+            },
+            "rwa_metadata": chosen.get("rwa_metadata"),
+        },
+        message=(
+            f"Deployed ${amount_usd:,.0f} {asset} to {chosen['venue']} (Stellar RWA) at "
+            f"{chosen['apy'] * 100:.2f}% APY. "
+            f"Policy: {policy_check.reason}."
+        ),
+    )
+
+
+def check_soroban_policy(
+    ctx: ToolContext,
+    *,
+    amount_usd: float,
+    to_address: str,
+    **_: Any,
+) -> ToolResult:
+    """Check if a transfer passes the on-chain Soroban policy contract."""
+    org = ctx.db.get(Organization, ctx.organization_id)
+    policy = org.policy
+    result = soroban_policy.check_transfer(
+        amount_usd=float(amount_usd),
+        to_address=to_address,
+        max_autonomous_usd=policy.max_autonomous_transfer_usd,
+        daily_spent_usd=0.0,
+        max_daily_usd=policy.max_autonomous_daily_usd,
+    )
+    return ToolResult(
+        ok=True,
+        data={
+            "allowed": result.allowed,
+            "reason": result.reason,
+            "contract_id": result.contract_id,
+            "additional_signers_required": result.requires_additional_signers,
+        },
+        message=f"Soroban policy: {'ALLOWED' if result.allowed else 'BLOCKED'} — {result.reason}",
+    )
+
+
+def list_stellar_rwa_venues(ctx: ToolContext, **_: Any) -> ToolResult:
+    """List available Stellar-native RWA yield products (tokenized T-bills, bonds)."""
+    venues = yield_adapter.list_stellar_rwa()
+    return ToolResult(
+        ok=True,
+        data={"venues": venues},
+        message=f"{len(venues)} Stellar RWA venue(s) available.",
+    )
+
+
 # --- Registry -------------------------------------------------------------
 
 ToolFn = Callable[..., ToolResult]
@@ -284,6 +403,11 @@ TOOLS: dict[str, ToolFn] = {
     "batch_payout": batch_payout,
     "deploy_yield": deploy_yield,
     "categorize_transactions": categorize_transactions,
+    # Stellar-specific tools
+    "stellar_cross_border_quote": stellar_cross_border_quote,
+    "deploy_rwa": deploy_rwa,
+    "check_soroban_policy": check_soroban_policy,
+    "list_stellar_rwa_venues": list_stellar_rwa_venues,
 }
 
 # JSON-schema-ish specs exposed to an LLM for tool-use (and for the API docs).
@@ -350,6 +474,26 @@ TOOL_SPECS: list[dict] = [
     {
         "name": "categorize_transactions",
         "description": "Auto-categorize uncategorized transactions for the books.",
+        "parameters": {},
+    },
+    {
+        "name": "stellar_cross_border_quote",
+        "description": "Quote a Stellar anchor cross-border payment for EMEA/Africa corridors. Compares vs traditional off-ramp.",
+        "parameters": {"amount_usd": "number", "country": "string (ISO 2-letter)", "asset": "string"},
+    },
+    {
+        "name": "deploy_rwa",
+        "description": "Deploy treasury into tokenized RWA (T-bills, bonds) on Stellar via Soroban contracts.",
+        "parameters": {"amount_usd": "number", "asset": "string", "venue": "string (optional)"},
+    },
+    {
+        "name": "check_soroban_policy",
+        "description": "Check if a transfer passes the on-chain Soroban policy contract on Stellar.",
+        "parameters": {"amount_usd": "number", "to_address": "string"},
+    },
+    {
+        "name": "list_stellar_rwa_venues",
+        "description": "List Stellar-native RWA yield products (tokenized T-bills, EU bonds, money market funds).",
         "parameters": {},
     },
 ]

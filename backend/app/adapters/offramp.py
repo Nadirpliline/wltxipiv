@@ -1,8 +1,11 @@
-"""Fiat off-ramp adapter (Bridge.xyz style).
+"""Fiat off-ramp adapter (Bridge.xyz style + Stellar anchors).
 
 Converts stablecoins to fiat and sends to a payee's local bank rail for payees
 who set ``prefers_fiat`` (or in jurisdictions without practical crypto payout).
 Sandbox mode estimates fees/ETA; live mode calls Bridge's transfers API.
+
+For EMEA/Africa corridors, compares Bridge.xyz rates against Stellar anchor
+rates and automatically selects the cheaper path.
 """
 
 from __future__ import annotations

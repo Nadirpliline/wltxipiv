@@ -69,3 +69,19 @@ def get_run(org_id: int, run_id: int, db: Session = Depends(get_db)) -> dict:
     if run is None or run.organization_id != org_id:
         return {"error": "not found"}
     return _serialize_run(run)
+
+
+@router.post("/orgs/{org_id}/agent/tool")
+def invoke_tool(org_id: int, body: dict, db: Session = Depends(get_db)) -> dict:
+    """Invoke a single agent tool directly (used by the frontend Stellar page)."""
+    from app.agent.tools import TOOLS, ToolContext
+
+    tool_name = body.get("tool", "")
+    arguments = body.get("arguments", {})
+    fn = TOOLS.get(tool_name)
+    if fn is None:
+        return {"ok": False, "data": {}, "message": f"Unknown tool: {tool_name}"}
+    ctx = ToolContext(db=db, organization_id=org_id)
+    result = fn(ctx, **arguments)
+    db.commit()
+    return {"ok": result.ok, "data": result.data, "message": result.message}

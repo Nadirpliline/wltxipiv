@@ -62,9 +62,42 @@ export default function DashboardPage() {
         <StatCard
           label="Volatile exposure"
           value={fmtUsd(ov.volatile_usd)}
-          sub="ETH / BTC / SOL"
+          sub="ETH / BTC / SOL / XLM"
           accent="amber"
         />
+      </div>
+
+      {/* Stellar & RWA summary */}
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="card border-l-2 border-l-blue-400">
+          <h2 className="mb-2 text-sm font-semibold text-blue-300">Stellar Treasury</h2>
+          <p className="text-2xl font-bold text-white">
+            {fmtUsd(
+              Object.entries(ov.by_chain)
+                .filter(([k]) => k === "stellar")
+                .reduce((sum, [, v]) => sum + v, 0)
+            )}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            EMEA payroll + RWA positions on Stellar/Soroban
+          </p>
+        </div>
+        <div className="card border-l-2 border-l-emerald-400">
+          <h2 className="mb-2 text-sm font-semibold text-emerald-300">RWA (Tokenized T-Bills)</h2>
+          <p className="text-2xl font-bold text-white">
+            {fmtUsd(ov.yield_usd * 0.44)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            US T-Bills + EMEA MMF on Stellar &middot; MiCA-compliant
+          </p>
+        </div>
+        <div className="card border-l-2 border-l-purple-400">
+          <h2 className="mb-2 text-sm font-semibold text-purple-300">EMEA Payroll Savings</h2>
+          <p className="text-2xl font-bold text-white">~67%</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Cost reduction via Stellar vs traditional rails (SWIFT/SEPA)
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">

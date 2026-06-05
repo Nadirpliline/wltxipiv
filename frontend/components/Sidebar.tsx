@@ -7,6 +7,7 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: "◎" },
   { href: "/agent", label: "CFO Agent", icon: "✦" },
   { href: "/payroll", label: "Payroll & Payouts", icon: "⇄" },
+  { href: "/stellar", label: "Stellar & RWA", icon: "✧" },
   { href: "/ledger", label: "Ledger & Reports", icon: "▤" },
 ];
 

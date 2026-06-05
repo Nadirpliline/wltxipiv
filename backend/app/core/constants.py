@@ -12,9 +12,11 @@ class Chain(StrEnum):
     OPTIMISM = "optimism"
     POLYGON = "polygon"
     SOLANA = "solana"
+    STELLAR = "stellar"
 
 
 EVM_CHAINS = {Chain.ETHEREUM, Chain.BASE, Chain.ARBITRUM, Chain.OPTIMISM, Chain.POLYGON}
+STELLAR_CHAINS = {Chain.STELLAR}
 
 # Indicative chain ids for EVM networks (used by Safe / Li.Fi adapters).
 CHAIN_IDS: dict[Chain, int] = {
@@ -34,6 +36,7 @@ CHAIN_TX_COST_USD: dict[Chain, float] = {
     Chain.OPTIMISM: 0.025,
     Chain.POLYGON: 0.004,
     Chain.SOLANA: 0.0008,
+    Chain.STELLAR: 0.00001,  # ~100 stroops, cheapest cross-border rail
 }
 
 
@@ -42,6 +45,8 @@ class Stablecoin(StrEnum):
     USDT = "USDT"
     DAI = "DAI"
     PYUSD = "PYUSD"
+    EURC = "EURC"  # EUR stablecoin on Stellar — key for MiCA/EMEA
+    NGNC = "NGNC"  # NGN-backed stablecoin on Stellar for Africa payroll
 
 
 class TxType(StrEnum):
@@ -90,4 +95,6 @@ DEFAULT_CHART_OF_ACCOUNTS: list[tuple[str, str, AccountType]] = [
     ("5100", "Vendor & Software Expense", AccountType.EXPENSE),
     ("5200", "Network & Transaction Fees", AccountType.EXPENSE),
     ("5300", "FX & Swap Spread", AccountType.EXPENSE),
+    ("1300", "RWA — Tokenized T-Bills (Stellar)", AccountType.ASSET),
+    ("1310", "RWA — Tokenized Real Estate", AccountType.ASSET),
 ]

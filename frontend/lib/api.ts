@@ -206,6 +206,12 @@ export const api = {
   journal: () => http<JournalEntry[]>(`/orgs/${ORG_ID}/ledger/journal`),
   yieldVenues: () => http<YieldVenue[]>(`/orgs/${ORG_ID}/yield/venues`),
 
+  agentRun: (tool: string, args: Record<string, unknown>) =>
+    http<{ ok: boolean; data: Record<string, unknown>; message: string }>(
+      `/orgs/${ORG_ID}/agent/tool`,
+      { method: "POST", body: JSON.stringify({ tool, arguments: args }) }
+    ),
+
   reportUrls: {
     auditorPdf: `/api/v1/orgs/${ORG_ID}/reports/auditor.pdf`,
     quickbooksCsv: `/api/v1/orgs/${ORG_ID}/reports/quickbooks.csv`,

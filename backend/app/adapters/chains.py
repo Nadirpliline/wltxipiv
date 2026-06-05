@@ -1,11 +1,15 @@
-"""Multi-chain treasury adapters: Safe (EVM) and Squads (Solana).
+"""Multi-chain treasury adapters: Safe (EVM), Squads (Solana), and Stellar.
 
 The agent never holds private keys. For EVM it builds a Safe transaction and
 returns a ``safe_tx_hash`` that owners co-sign; for Solana it builds a Squads
-proposal. In sandbox mode these produce deterministic, well-formed identifiers
-so the multisig lifecycle (propose → collect signatures → execute) can be driven
+proposal; for Stellar it builds a multi-signature transaction envelope using
+SEP-0030 (regulated assets / multisig coordination) that signers approve via
+the Stellar network's native multi-auth mechanism.
+
+In sandbox mode these produce deterministic, well-formed identifiers so the
+multisig lifecycle (propose → collect signatures → execute) can be driven
 end-to-end. In live mode the same methods would call the Safe Transaction
-Service / Squads program via viem / @solana/web3.js equivalents.
+Service / Squads program / Stellar Horizon + Soroban RPC.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ from __future__ import annotations
 import hashlib
 
 from app.adapters.base import Adapter
-from app.core.constants import EVM_CHAINS, Chain
+from app.core.constants import EVM_CHAINS, STELLAR_CHAINS, Chain
 
 
 def _det_hash(prefix: str, *parts: object) -> str:
@@ -79,8 +83,121 @@ class SquadsAdapter(Adapter):
         return {"executed": True, "tx_hash": sig[:88], "safe_tx_hash": safe_tx_hash}
 
 
+class StellarAdapter(Adapter):
+    """Stellar multi-signature transaction builder.
+
+    Uses Stellar's native multi-auth (threshold weights on accounts) and
+    SEP-0030 for regulated custody. For cross-border EMEA/Africa payroll,
+    Stellar offers sub-cent fees (~0.00001 USD) and 5-second finality.
+
+    In live mode, connects to Horizon API and Soroban RPC for smart-contract
+    policy enforcement via Soroban contracts.
+    """
+
+    name = "stellar"
+
+    def build_transfer(
+        self,
+        *,
+        account: str,
+        to: str,
+        asset: str,
+        amount: float,
+        sequence: int,
+        memo: str = "",
+    ) -> dict:
+        """Build a Stellar transaction envelope for multisig approval."""
+        tx_hash = _det_hash("stellar_", "stellar", account, to, asset, amount, sequence)
+        return {
+            "type": "stellar_multisig_tx",
+            "chain": Chain.STELLAR,
+            "source_account": account,
+            "to": to,
+            "asset": asset,
+            "amount": amount,
+            "sequence": sequence,
+            "memo": memo,
+            "tx_hash": tx_hash,
+            "network": "public",  # or "testnet"
+            "horizon_url": "https://horizon.stellar.org",
+            "fee_stroops": 100,  # 0.00001 XLM
+        }
+
+    def build_soroban_invoke(
+        self,
+        *,
+        account: str,
+        contract_id: str,
+        function_name: str,
+        args: list[dict],
+        sequence: int,
+    ) -> dict:
+        """Build a Soroban smart contract invocation for policy enforcement."""
+        tx_hash = _det_hash(
+            "soroban_", contract_id, function_name, str(args), sequence
+        )
+        return {
+            "type": "soroban_invoke",
+            "chain": Chain.STELLAR,
+            "source_account": account,
+            "contract_id": contract_id,
+            "function": function_name,
+            "args": args,
+            "sequence": sequence,
+            "tx_hash": tx_hash,
+            "soroban_rpc": "https://soroban-rpc.mainnet.stellar.gateway.fm",
+        }
+
+    def execute(self, *, safe_tx_hash: str) -> dict:
+        """Execute (submit) a signed Stellar transaction."""
+        ledger = hashlib.sha256(f"stellar-exec|{safe_tx_hash}".encode()).hexdigest()
+        return {
+            "executed": True,
+            "tx_hash": safe_tx_hash,
+            "ledger": int(ledger[:8], 16) % 100_000_000,
+            "fee_charged_stroops": 100,
+        }
+
+    def build_path_payment(
+        self,
+        *,
+        account: str,
+        to: str,
+        send_asset: str,
+        dest_asset: str,
+        send_amount: float,
+        dest_min: float,
+        path: list[str] | None = None,
+        sequence: int,
+    ) -> dict:
+        """Build a Stellar path payment for cross-asset/cross-border settlement.
+
+        Stellar's path payment atomic DEX swap allows sending one asset
+        and the receiver getting another — ideal for EMEA/Africa corridors
+        where the sender holds USDC but the receiver wants local-currency
+        stablecoins (NGNC, EURC, etc.).
+        """
+        tx_hash = _det_hash(
+            "pathpay_", account, to, send_asset, dest_asset, send_amount, sequence
+        )
+        return {
+            "type": "stellar_path_payment",
+            "chain": Chain.STELLAR,
+            "source_account": account,
+            "to": to,
+            "send_asset": send_asset,
+            "dest_asset": dest_asset,
+            "send_amount": send_amount,
+            "dest_min": dest_min,
+            "path": path or [],
+            "sequence": sequence,
+            "tx_hash": tx_hash,
+        }
+
+
 _safe = SafeAdapter()
 _squads = SquadsAdapter()
+_stellar = StellarAdapter()
 
 
 def get_chain_adapter(chain: str):
@@ -89,4 +206,6 @@ def get_chain_adapter(chain: str):
         return _squads
     if chain in EVM_CHAINS:
         return _safe
+    if chain in STELLAR_CHAINS:
+        return _stellar
     raise ValueError(f"Unsupported chain: {chain}")

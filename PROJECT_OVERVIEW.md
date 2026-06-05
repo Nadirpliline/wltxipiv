@@ -18,10 +18,16 @@ reports. It's Stripe Atlas + Rippling + Brex for on-chain, driven by an LLM rath
 than headcount."*
 
 **The killer demo:** upload a CSV of 200 contractors in 40 countries → in ~90 seconds
-the agent routes every payee to the cheapest chain (or a local fiat rail), screens
-each for compliance, builds the multisig proposals, settles them, and produces a PDF
-report ready for a Deloitte auditor. Alliance DAO's mentors run Alliance DAO's own
-treasury — this is *their* pain. They can sign a check before the Zoom call ends.
+the agent routes every payee to the cheapest chain (**Stellar for EMEA/Africa at
+$0.00001/tx**, EVM L2s elsewhere, or a local fiat rail), screens each for compliance,
+builds the multisig proposals, settles them, and produces a PDF report ready for a
+Deloitte auditor. Alliance DAO's mentors run Alliance DAO's own treasury — this is
+*their* pain. They can sign a check before the Zoom call ends.
+
+**Stellar advantage:** For the 45+ EMEA/Africa countries where our contractors live,
+Stellar reduces cross-border payroll costs by ~67% vs SWIFT, settles in 5 seconds,
+and natively supports local stablecoins (EURC for EU/MiCA, NGNC for Nigeria) via
+path payments — no manual FX needed.
 
 ---
 
@@ -54,9 +60,12 @@ crypto tools (Safe, Squads, Den, Utopia) are wallets, not finance teams.
    reliable multi-step **tool-use** in financial workflows — not true a year ago.
 3. **Programmable multisig.** Safe modules and Squads let an agent be a **co-signer
    with risk limits** — autonomy without surrendering keys.
-4. **Compliance & identity APIs.** Bridge, Brale, Privy, Dynamic close KYC/AML and
+4. **Stellar + Soroban.** Stellar's sub-cent fees ($0.00001/tx) and 5-second finality
+   make it the ideal rail for cross-border payroll. Soroban smart contracts enable
+   on-chain policy enforcement without EVM gas overhead.
+5. **Compliance & identity APIs.** Bridge, Brale, Privy, Dynamic close KYC/AML and
    on/off-ramp faster than a bank ever could.
-5. **The pain is acute and universal.** Every DAO treasurer feels it monthly.
+6. **The pain is acute and universal.** Every DAO treasurer feels it monthly.
 
 ---
 
@@ -64,16 +73,20 @@ crypto tools (Safe, Squads, Den, Utopia) are wallets, not finance teams.
 
 | Capability | What it means | Status in this build |
 |---|---|---|
-| **Multi-chain treasury** | Aggregate balances across Ethereum, Base, Arbitrum, Optimism, Polygon, Solana; NAV, allocation by chain/asset, stablecoin %. | ✅ End-to-end |
+| **Multi-chain treasury** | Aggregate balances across Ethereum, Base, Arbitrum, Optimism, Polygon, Solana, **Stellar**; NAV, allocation by chain/asset, stablecoin %. | ✅ End-to-end |
 | **Autonomous CFO agent** | Plain-English goals → planned, policy-bounded tool calls → audited execution trace. | ✅ End-to-end |
 | **Policy engine** | Min operating reserve, target stablecoin %, idle-yield threshold, max autonomous transfer, required signatures. | ✅ End-to-end |
-| **Global payroll** | CSV import → cheapest-chain routing or fiat off-ramp → compliance screen → multisig proposals → execute. | ✅ End-to-end |
+| **Soroban on-chain policy** | Spending limits, compliance allowlists, and time-locked withdrawals enforced via Soroban smart contracts on Stellar. | ✅ End-to-end |
+| **Global payroll** | CSV import → cheapest-chain routing (Stellar for EMEA/Africa) or fiat off-ramp → compliance screen → multisig proposals → execute. | ✅ End-to-end |
+| **Stellar cross-border** | SEP-31 anchor payments to 45+ countries; NIBSS, M-Pesa, SEPA Instant rails; ~67% cheaper than SWIFT. | ✅ End-to-end |
 | **Double-entry ledger** | Every action posts balanced journal entries; trial balance & income statement always reconcile. | ✅ End-to-end |
 | **Yield deployment** | Survey venues (Aave/Morpho/Ondo T-bills), deploy idle stablecoins, track accrual. | ✅ End-to-end |
-| **FX / swap routing** | Li.Fi-style quotes with realistic spreads for stablecoin/asset rebalancing. | ✅ End-to-end |
+| **RWA / Tokenized T-Bills** | Deploy treasury into tokenized US T-Bills, EU bonds, and money market funds on Stellar (MiCA-compliant). | ✅ End-to-end |
+| **Asset issuance** | Custom stablecoin support on Stellar — EURC (EU/MiCA) and NGNC (Africa payroll). | ✅ End-to-end |
+| **FX / swap routing** | Li.Fi-style quotes + Stellar path payments for atomic cross-asset settlement (USDC→EURC, USDC→NGNC). | ✅ End-to-end |
 | **Compliance screening** | Sanctioned-country + address checks gate every payee before funds move. | ✅ End-to-end |
 | **Auditor reporting** | One-click **PDF** (treasury position, trial balance, P&L, register) + **QuickBooks CSV**. | ✅ End-to-end |
-| **Dashboard** | Next.js + Tailwind UI over the whole system. | ✅ End-to-end |
+| **Dashboard** | Next.js + Tailwind UI over the whole system, with dedicated Stellar/RWA page. | ✅ End-to-end |
 
 Everything runs in **sandbox mode** with no private keys and no external API keys, so
 the product is fully demonstrable offline and in CI. Flipping to **live mode** points
