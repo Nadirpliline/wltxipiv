@@ -536,3 +536,29 @@ mandate/
   report — not slides.
 - **Alliance DAO ready**: EMEA-focused, Stellar-native, demonstrable traction metrics,
   and a demo that pays 15 contractors across 4 networks in 0.05 seconds.
+
+---
+
+## 18. Additional Documentation
+
+All business and operational documents are in the `docs/` folder:
+
+| Document | Description |
+|----------|-------------|
+| [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) | Full deployment plan: Vercel + Railway, Docker VPS, CI/CD, DNS, SSL |
+| [`docs/PITCH_DECK.md`](docs/PITCH_DECK.md) | 12-slide investor presentation (convert to Google Slides/Keynote) |
+| [`docs/ONE_PAGER.md`](docs/ONE_PAGER.md) | One-page summary for partners/mentors |
+| [`docs/FINANCIAL_MODEL.md`](docs/FINANCIAL_MODEL.md) | Revenue streams, projections, unit economics, path to $1M ARR |
+| [`docs/COMPETITIVE_ANALYSIS.md`](docs/COMPETITIVE_ANALYSIS.md) | Detailed competitor breakdown (Safe, Den, Utopia, Deel, Bridge) |
+| [`docs/GO_TO_MARKET.md`](docs/GO_TO_MARKET.md) | 12-month GTM plan with 90-day sprint, channels, metrics |
+| [`docs/LOVABLE_LANDING_PROMPT.md`](docs/LOVABLE_LANDING_PROMPT.md) | Ready-to-use prompt for Lovable.dev landing page generation |
+
+---
+
+## 19. Quick Links
+
+- **GitHub:** https://github.com/Nadirpliline/wltxipiv
+- **PR #1 (Stellar Integration):** https://github.com/Nadirpliline/wltxipiv/pull/1
+- **Run locally:** `docker compose up --build` → Dashboard: http://localhost:3000
+- **API Docs:** http://localhost:8000/docs (Swagger UI)
+- **Tests:** `cd backend && PYTHONPATH=. pytest -q` (38 passing)
