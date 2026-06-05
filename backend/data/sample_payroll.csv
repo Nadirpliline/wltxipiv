@@ -1,0 +1,13 @@
+name,email,country,role,amount_usd,chain,asset,wallet_address,prefers_fiat,memo
+Aisha Bello,aisha@helios.xyz,NG,Smart Contract Engineer,8500,base,USDC,0xA15ha000000000000000000000000000000be110,false,June engineering
+Diego Santos,diego@helios.xyz,BR,DevRel,6200,solana,USDC,DiegoSo1anaWa11et000000000000000000000000,false,June devrel
+Mei Tanaka,mei@helios.xyz,JP,Designer,5400,base,USDC,0xMe1000000000000000000000000000000Tanaka1,false,June design
+Liam O'Connor,liam@helios.xyz,IE,Backend Engineer,7800,,USDC,0xL1am0000000000000000000000000000Connor11,false,June backend
+Priya Nair,priya@helios.xyz,IN,Data Scientist,7200,,USDC,0xPr1ya0000000000000000000000000000Na1r001,false,June data
+Tomas Novak,tomas@helios.xyz,CZ,Security Auditor,9100,arbitrum,USDC,0xT0mas000000000000000000000000000N0vak001,false,June security
+Sofia Rossi,sofia@helios.xyz,IT,Product Manager,8800,,USDC,,true,June PM (fiat via SEPA)
+Kwame Mensah,kwame@helios.xyz,GH,Community Lead,4300,base,USDC,0xKwame00000000000000000000000000Mensah001,false,June community
+Yuki Sato,yuki@helios.xyz,JP,Frontend Engineer,7600,base,USDC,0xYuk1000000000000000000000000000000Sat001,false,June frontend
+Carlos Vega,carlos@helios.xyz,MX,DevOps,7000,,USDC,,true,June devops (fiat via SPEI)
+Nadia Petrova,nadia@helios.xyz,BG,QA Engineer,5200,polygon,USDC,0xNad1a000000000000000000000000000Petr0va1,false,June QA
+Omar Haddad,omar@helios.xyz,AE,Growth,6600,base,USDC,0x0mar00000000000000000000000000000Haddad1,false,June growth
