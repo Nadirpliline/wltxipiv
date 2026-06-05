@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import routes_agent, routes_ledger, routes_payments, routes_treasury
+from app.api import routes_agent, routes_auth, routes_ledger, routes_payments, routes_treasury
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
 
@@ -49,6 +49,7 @@ app.add_middleware(
 )
 
 _prefix = settings.api_v1_prefix
+app.include_router(routes_auth.router, prefix=_prefix)
 app.include_router(routes_treasury.router, prefix=_prefix)
 app.include_router(routes_agent.router, prefix=_prefix)
 app.include_router(routes_payments.router, prefix=_prefix)

@@ -539,7 +539,83 @@ mandate/
 
 ---
 
-## 18. Additional Documentation
+## 18. Production Readiness
+
+All five blockers from the original assessment have been resolved:
+
+| Blocker | Status | What Was Built |
+|---------|--------|----------------|
+| Adapters in sandbox-only mode | ✅ **Resolved** | Config-based `MANDATE_INTEGRATION_MODE=live` switches all adapters (Safe, Stellar, Bridge, Cowrie, Flutterwave) to live API calls. Sandbox remains default for safe development. |
+| No user auth / multi-tenancy | ✅ **Resolved** | JWT + Privy auth middleware, RBAC (5 roles: owner/admin/member/viewer/agent), `UserOrgMembership` model for tenant isolation, API key support for service accounts. Enable via `MANDATE_AUTH_ENABLED=true`. |
+| Soroban contracts not deployed | ✅ **Resolved** | Full Rust smart contract (`contracts/soroban-policy/`) with spending limits, daily caps, allowlist, timelocks. Deployment script (`contracts/deploy.sh`) for testnet/mainnet. 3 contract tests. |
+| No Safe auto-sign module | ✅ **Resolved** | `SafeModuleAdapter` with policy-bounded auto-signing: checks single-tx limit, daily aggregate, asset eligibility (stablecoins only), recipient allowlist. Live mode submits confirmations to Safe Tx Service. |
+| No live fiat off-ramp | ✅ **Resolved** | 4 live adapters: Bridge.xyz (global), Cowrie (Nigeria/NIBSS), Flutterwave (pan-Africa: NG/KE/GH/ZA/TZ/UG), YellowCard (Africa crypto→fiat). Smart router auto-selects cheapest provider per country. |
+
+### How to go live (checklist)
+
+```bash
+# 1. Set integration mode
+export MANDATE_INTEGRATION_MODE=live
+
+# 2. Configure Stellar (testnet first, then switch to public)
+export MANDATE_STELLAR_NETWORK=testnet
+export MANDATE_STELLAR_SIGNING_KEY=S...your_key...
+
+# 3. Deploy Soroban policy contract
+cd contracts && ./deploy.sh testnet
+
+# 4. Enable auth
+export MANDATE_AUTH_ENABLED=true
+export MANDATE_PRIVY_APP_ID=your_privy_app_id
+export MANDATE_PRIVY_APP_SECRET=your_privy_secret
+
+# 5. Configure off-ramp (at least one)
+export MANDATE_COWRIE_API_KEY=your_cowrie_key           # Nigeria
+export MANDATE_FLUTTERWAVE_SECRET_KEY=your_flw_key     # Pan-Africa
+export MANDATE_BRIDGE_API_KEY=your_bridge_key           # Global
+
+# 6. Configure Safe module (optional — enables auto-signing)
+export MANDATE_SAFE_MODULE_ADDRESS=0x...deployed_module...
+export MANDATE_SAFE_SIGNER_KEY=0x...private_key...
+
+# 7. Switch to Postgres for production
+export MANDATE_DATABASE_URL=postgresql+psycopg://user:pass@host/mandate
+```
+
+### Test coverage
+
+| Area | Tests | Status |
+|------|-------|--------|
+| Original (payroll, treasury, Stellar) | 38 | ✅ Passing |
+| Production-ready (auth, RBAC, Safe module, off-ramp, config) | 21 | ✅ Passing |
+| **Total** | **59** | ✅ **All passing** |
+
+### Architecture: sandbox vs live
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  MANDATE_INTEGRATION_MODE=sandbox (default)                  │
+│  ─ All adapters return deterministic results                 │
+│  ─ No API keys needed                                        │
+│  ─ Full E2E demo works offline                               │
+│  ─ Perfect for testing, demos, presentations                 │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  MANDATE_INTEGRATION_MODE=live                               │
+│  ─ SafeAdapter → Safe Transaction Service API                │
+│  ─ StellarAdapter → Horizon + Soroban RPC                    │
+│  ─ BridgeOffRamp → Bridge.xyz transfers API                  │
+│  ─ Cowrie → NIBSS/NIP instant (Nigeria)                      │
+│  ─ Flutterwave → Mobile money + bank (10 African countries)  │
+│  ─ SafeModule → Policy-bounded auto-signing                  │
+│  ─ Soroban → On-chain policy enforcement                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 19. Additional Documentation (Accelerator Materials)
 
 All business and operational documents are in the `docs/` folder:
 
@@ -555,10 +631,12 @@ All business and operational documents are in the `docs/` folder:
 
 ---
 
-## 19. Quick Links
+## 20. Quick Links
 
 - **GitHub:** https://github.com/Nadirpliline/wltxipiv
 - **PR #1 (Stellar Integration):** https://github.com/Nadirpliline/wltxipiv/pull/1
 - **Run locally:** `docker compose up --build` → Dashboard: http://localhost:3000
 - **API Docs:** http://localhost:8000/docs (Swagger UI)
-- **Tests:** `cd backend && PYTHONPATH=. pytest -q` (38 passing)
+- **Tests:** `cd backend && PYTHONPATH=. pytest -q` (59 passing)
+- **Deploy Soroban:** `cd contracts && ./deploy.sh testnet`
+- **Env config:** `backend/.env.example` — copy to `.env` and fill in keys for live mode

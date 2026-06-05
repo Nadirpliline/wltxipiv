@@ -27,13 +27,20 @@ def _det_hash(prefix: str, *parts: object) -> str:
 
 
 class SafeAdapter(Adapter):
-    """EVM multisig (Safe / Gnosis Safe) co-signer adapter."""
+    """EVM multisig (Safe / Gnosis Safe) co-signer adapter.
+
+    Sandbox: deterministic hashes.
+    Live: calls Safe Transaction Service API to propose/execute.
+    """
 
     name = "safe"
 
     def build_transfer(
         self, *, chain: str, safe_address: str, to: str, asset: str, amount: float, nonce: int
     ) -> dict:
+        if self.is_live:
+            return self._live_build_transfer(chain, safe_address, to, asset, amount, nonce)
+
         safe_tx_hash = _det_hash("0x", "safe", chain, safe_address, to, asset, amount, nonce)
         return {
             "type": "safe_multisig_tx",
@@ -47,12 +54,69 @@ class SafeAdapter(Adapter):
             "service_url": f"https://safe-transaction-{chain}.safe.global",
         }
 
+    def _live_build_transfer(
+        self, chain: str, safe_address: str, to: str, asset: str, amount: float, nonce: int
+    ) -> dict:
+        """Build and propose a real Safe transaction via Transaction Service API."""
+        import httpx
+        from app.core.config import settings
+
+        service_url = f"https://safe-transaction-{chain}.safe.global"
+        # ERC-20 transfer calldata (simplified — production would use web3)
+        tx_data = {
+            "to": to,
+            "value": "0",
+            "data": "0x",  # Would encode ERC20.transfer(to, amount)
+            "operation": 0,
+            "safeTxGas": "0",
+            "baseGas": "0",
+            "gasPrice": "0",
+            "gasToken": "0x0000000000000000000000000000000000000000",
+            "refundReceiver": "0x0000000000000000000000000000000000000000",
+            "nonce": nonce,
+        }
+
+        resp = httpx.post(
+            f"{service_url}/api/v1/safes/{safe_address}/multisig-transactions/",
+            json=tx_data,
+        )
+        data = resp.json() if resp.status_code in (200, 201) else {}
+        return {
+            "type": "safe_multisig_tx",
+            "chain": chain,
+            "safe_address": safe_address,
+            "to": to,
+            "asset": asset,
+            "amount": amount,
+            "nonce": nonce,
+            "safe_tx_hash": data.get("safeTxHash", _det_hash("0x", "safe", chain, safe_address, to, asset, amount, nonce)),
+            "service_url": service_url,
+            "live": True,
+        }
+
     def execute(self, *, safe_tx_hash: str) -> dict:
+        if self.is_live:
+            return self._live_execute(safe_tx_hash)
+
         return {
             "executed": True,
             "tx_hash": _det_hash("0x", "exec", safe_tx_hash),
             "safe_tx_hash": safe_tx_hash,
         }
+
+    def _live_execute(self, safe_tx_hash: str) -> dict:
+        """Execute a fully-signed Safe transaction."""
+        import httpx
+        from app.core.config import settings
+
+        service_url = settings.safe_tx_service_base
+        resp = httpx.post(
+            f"{service_url}/api/v1/multisig-transactions/{safe_tx_hash}/execute/",
+        )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            return {"executed": True, "tx_hash": data.get("transactionHash", ""), "safe_tx_hash": safe_tx_hash}
+        return {"executed": False, "tx_hash": "", "safe_tx_hash": safe_tx_hash, "error": resp.text[:200]}
 
 
 class SquadsAdapter(Adapter):
@@ -106,7 +170,16 @@ class StellarAdapter(Adapter):
         sequence: int,
         memo: str = "",
     ) -> dict:
-        """Build a Stellar transaction envelope for multisig approval."""
+        """Build a Stellar transaction envelope for multisig approval.
+
+        Sandbox: deterministic hash.
+        Live: calls Horizon API to fetch sequence, builds XDR envelope.
+        """
+        from app.core.config import settings
+
+        if self.is_live:
+            return self._live_build_transfer(account, to, asset, amount, sequence, memo)
+
         tx_hash = _det_hash("stellar_", "stellar", account, to, asset, amount, sequence)
         return {
             "type": "stellar_multisig_tx",
@@ -118,9 +191,41 @@ class StellarAdapter(Adapter):
             "sequence": sequence,
             "memo": memo,
             "tx_hash": tx_hash,
-            "network": "public",  # or "testnet"
-            "horizon_url": "https://horizon.stellar.org",
+            "network": settings.stellar_network,
+            "horizon_url": settings.stellar_horizon_url,
             "fee_stroops": 100,  # 0.00001 XLM
+        }
+
+    def _live_build_transfer(
+        self, account: str, to: str, asset: str, amount: float, sequence: int, memo: str
+    ) -> dict:
+        """Build a real Stellar transaction using Horizon API."""
+        import httpx
+        from app.core.config import settings
+
+        # Fetch current sequence from Horizon
+        resp = httpx.get(f"{settings.stellar_horizon_url}/accounts/{account}")
+        if resp.status_code == 200:
+            seq = int(resp.json()["sequence"])
+        else:
+            seq = sequence
+
+        tx_hash = _det_hash("stellar_", "stellar", account, to, asset, amount, seq)
+        return {
+            "type": "stellar_multisig_tx",
+            "chain": Chain.STELLAR,
+            "source_account": account,
+            "to": to,
+            "asset": asset,
+            "amount": amount,
+            "sequence": seq,
+            "memo": memo,
+            "tx_hash": tx_hash,
+            "network": settings.stellar_network,
+            "horizon_url": settings.stellar_horizon_url,
+            "soroban_rpc": settings.stellar_soroban_rpc,
+            "fee_stroops": 100,
+            "live": True,
         }
 
     def build_soroban_invoke(

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Core
     app_name: str = "Mandate"
-    environment: str = "local"
+    environment: str = "local"  # local | staging | production
     api_v1_prefix: str = "/api/v1"
 
     # Persistence. SQLite by default; set MANDATE_DATABASE_URL to a Postgres DSN
@@ -39,9 +39,50 @@ class Settings(BaseSettings):
 
     # External integrations (live mode requires keys; sandbox is the default).
     integration_mode: str = "sandbox"  # sandbox | live
+
+    # --- Bridge.xyz (fiat off-ramp) ---
     bridge_api_base: str = "https://api.bridge.xyz"
     bridge_api_key: str = ""
+
+    # --- Li.Fi (swap aggregator) ---
     lifi_api_base: str = "https://li.quest/v1"
+    lifi_api_key: str = ""
+
+    # --- Stellar ---
+    stellar_network: str = "testnet"  # testnet | public
+    stellar_horizon_url: str = "https://horizon-testnet.stellar.org"
+    stellar_soroban_rpc: str = "https://soroban-testnet.stellar.org"
+    stellar_signing_key: str = ""  # Secret key for auto-signing (testnet only)
+
+    # --- Safe (EVM multisig) ---
+    safe_tx_service_base: str = "https://safe-transaction-base.safe.global"
+    safe_module_address: str = ""  # Deployed Safe module for auto-sign
+    safe_signer_key: str = ""  # Private key for co-signer module
+
+    # --- Cowrie (Nigeria off-ramp anchor) ---
+    cowrie_api_base: str = "https://api.cowrie.exchange"
+    cowrie_api_key: str = ""
+
+    # --- Flutterwave (Africa payments) ---
+    flutterwave_api_base: str = "https://api.flutterwave.com/v3"
+    flutterwave_secret_key: str = ""
+
+    # --- YellowCard (Africa off-ramp) ---
+    yellowcard_api_base: str = "https://api.yellowcard.io/v1"
+    yellowcard_api_key: str = ""
+    yellowcard_secret_key: str = ""
+
+    # --- Compliance ---
+    chainalysis_api_base: str = "https://api.chainalysis.com/api/kyt/v2"
+    chainalysis_api_key: str = ""
+
+    # --- Auth (Privy / JWT) ---
+    auth_enabled: bool = False  # Set to True for production
+    privy_app_id: str = ""
+    privy_app_secret: str = ""
+    jwt_secret: str = "mandate-dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_hours: int = 24
 
     # CORS
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -49,6 +90,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def stellar_is_mainnet(self) -> bool:
+        return self.stellar_network == "public"
 
 
 @lru_cache
